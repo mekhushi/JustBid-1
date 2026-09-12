@@ -1,15 +1,36 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Link, useNavigate } from "react-router-dom"
-import { Settings, BarChart3, LayoutDashboard, Bookmark, LogOut, TrendingUp, Search, CheckCircle2, Shield, Activity, Wifi, Cpu, Users } from "lucide-react"
-import confetti from "canvas-confetti"
-import { CircularGauge } from "@/components/ui/circular-gauge"
+import { 
+  LayoutDashboard, 
+  Briefcase, 
+  Building2, 
+  FileText, 
+  Users, 
+  BarChart2, 
+  LogOut, 
+  Search, 
+  Sparkles, 
+  TrendingUp, 
+  ShieldCheck, 
+  Clock, 
+  CheckCircle2, 
+  Filter, 
+  RefreshCw,
+  SlidersHorizontal,
+  ChevronRight
+} from "lucide-react"
 import { TenderCard3D } from "@/components/ui/tender-card-3d"
-import { TeamCollaborationCard } from "@/components/ui/team-collaboration-card"
-import { DocumentAnalysisCard } from "@/components/ui/document-analysis-card"
-import { Atmosphere } from "@/components/ui/atmosphere"
-import { DecryptionText } from "@/components/ui/decryption-text"
-import Magnetic from "@/components/ui/magnetic"
+import { Navbar } from "@/components/ui/navbar"
+
+const CATEGORIES = [
+  "All Sectors",
+  "IT & Software",
+  "Engineering & Energy",
+  "Healthcare & MedTech",
+  "Transport & Logistics",
+  "Cybersecurity"
+]
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -17,41 +38,12 @@ export default function DashboardPage() {
   const [filteredTenders, setFilteredTenders] = useState([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
-  const [appliedTenders, setAppliedTenders] = useState({})
+  const [company, setCompany] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-  const [systemLogs, setSystemLogs] = useState([
-    "INITIALIZING NEURAL INTERFACE...",
-    "HANDSHAKE WITH SIMAP COMPLETE",
-    "MATCH ENGINE ACTIVE",
-    "UPDATING OPPORTUNITY MATRIX",
-    "SECURITY ENCRYPTION: SHIELD ON"
-  ])
+  const [selectedCategory, setSelectedCategory] = useState("All Sectors")
+  const [savedTenderIds, setSavedTenderIds] = useState(new Set())
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY })
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
-
-  // Auto-scroll logs
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const logs = [
-        "PARSING NODE " + Math.floor(Math.random() * 1000),
-        "SENTIMENT SCANNED: POSITIVE",
-        "NEW TENDER ID " + Math.floor(Math.random() * 99999) + " INGESTED",
-        "NEURAL FILTER: APPLIED",
-        "SIGNAL STRENGTH: OPTIMAL"
-      ]
-      setSystemLogs(prev => [...prev.slice(-15), logs[Math.floor(Math.random() * logs.length)]])
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -62,332 +54,274 @@ export default function DashboardPage() {
       return
     }
 
-    setUser(JSON.parse(storedUser))
-
-    const fetchTenders = async () => {
+    if (storedUser) {
       try {
-        const res = await fetch(`${API_URL}/api/tenders/feed`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        setUser(JSON.parse(storedUser))
+      } catch (e) {}
+    }
 
-        if (!res.ok) {
-           if (res.status === 400) {
-              navigate("/profile")
-           }
-           throw new Error("Failed to fetch feed")
-        }
+    fetchFeedAndSaved(token)
+  }, [navigate])
 
-        const data = await res.json()
+  const fetchFeedAndSaved = async (token) => {
+    setLoading(true)
+    try {
+      // 1. Fetch matched feed
+      const feedRes = await fetch(`${API_URL}/api/tenders/feed`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (feedRes.ok) {
+        const data = await feedRes.json()
         setTenders(data)
         setFilteredTenders(data)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
+      } else {
+        // Fallback to public tenders if feed has issue
+        const genericRes = await fetch(`${API_URL}/api/tenders`)
+        if (genericRes.ok) {
+          const gData = await genericRes.json()
+          setTenders(gData.tenders || [])
+          setFilteredTenders(gData.tenders || [])
+        }
       }
-    }
 
-    fetchTenders()
-  }, [navigate, API_URL])
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredTenders(tenders)
-      return
-    }
-
-    const q = searchQuery.toLowerCase()
-    const filtered = tenders.filter(t => 
-      t.title?.toLowerCase().includes(q) || 
-      t.description?.toLowerCase().includes(q) ||
-      t.location?.toLowerCase().includes(q) ||
-      t.matchReasons?.some(r => r.toLowerCase().includes(q))
-    )
-    setFilteredTenders(filtered)
-  }, [searchQuery, tenders])
-
-  const handleApply = async (e, tenderId) => {
-    const rect = e.target.getBoundingClientRect?.() || { left: 0.5, top: 0.5, width: 0, height: 0 }
-    const x = (rect.left + rect.width / 2) / window.innerWidth
-    const y = (rect.top + rect.height / 2) / window.innerHeight
-
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { x, y },
-      colors: ['#D4AF37', '#ffffff', '#4ade80']
-    })
-
-    setAppliedTenders(prev => ({ ...prev, [tenderId]: true }))
-
-    const token = localStorage.getItem('token')
-    try {
-      await fetch(`${API_URL}/api/tenders/save/${tenderId}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+      // 2. Fetch user's saved bids to mark cards
+      const savedRes = await fetch(`${API_URL}/api/tenders/saved`, {
+        headers: { Authorization: `Bearer ${token}` }
       })
+      if (savedRes.ok) {
+        const savedData = await savedRes.json()
+        const idSet = new Set(savedData.map(b => b.tenderId || b.id))
+        setSavedTenderIds(idSet)
+      }
+
+      // 3. Fetch company info
+      const compRes = await fetch(`${API_URL}/api/company/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (compRes.ok) {
+        const compData = await compRes.json()
+        setCompany(compData)
+      }
     } catch (err) {
-      console.error("Failed to save bid:", err)
+      console.error("Dashboard fetch error:", err)
+    } finally {
+      setLoading(false)
     }
   }
 
+  // Filter logic
+  useEffect(() => {
+    let result = tenders
+
+    if (selectedCategory !== "All Sectors") {
+      result = result.filter(t => t.category?.toLowerCase() === selectedCategory.toLowerCase())
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(t => 
+        t.title?.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q) ||
+        t.location?.toLowerCase().includes(q) ||
+        t.authority?.toLowerCase().includes(q) ||
+        t.cpvCodes?.some(c => c.toLowerCase().includes(q))
+      )
+    }
+
+    setFilteredTenders(result)
+  }, [searchQuery, selectedCategory, tenders])
+
+  const handleSaveToggle = async (tenderId, isNowSaved) => {
+    setSavedTenderIds(prev => {
+      const next = new Set(prev)
+      if (isNowSaved) next.add(tenderId)
+      else next.delete(tenderId)
+      return next
+    })
+
+    const token = localStorage.getItem("token")
+    try {
+      await fetch(`${API_URL}/api/tenders/save/${tenderId}`, {
+        method: isNowSaved ? "POST" : "DELETE",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ status: "saved" })
+      })
+    } catch (err) {
+      console.error("Failed to update saved bid state:", err)
+    }
+  }
+
+  // Stats calculation
+  const totalValue = tenders.reduce((sum, t) => sum + (typeof t.budget === 'number' ? t.budget : 0), 0)
+  const avgFitScore = tenders.length > 0
+    ? Math.round(tenders.reduce((sum, t) => sum + (t.matchScore || 85), 0) / tenders.length)
+    : 92
+
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative selection:bg-primary/30">
-      {/* Infrastructure Layers */}
-      <div className="fixed inset-0 z-0">
-        <Atmosphere />
-        <div className="neural-grid" />
-        <div className="scanline-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background opacity-80 pointer-events-none" />
+    <div className="min-h-screen bg-[#080a10] text-white selection:bg-amber-400/30">
+      <Navbar />
+
+      {/* Subtle ambient luxury backdrop */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-amber-500/[0.03] rounded-full blur-[140px]" />
+        <div className="absolute bottom-[10%] right-[15%] w-[600px] h-[600px] bg-blue-500/[0.02] rounded-full blur-[160px]" />
       </div>
 
-      {/* Global Background Spotlight */}
-      <div 
-        className="fixed inset-0 pointer-events-none z-10 transition-opacity duration-300"
-        style={{
-          background: `radial-gradient(1000px circle at ${mousePos.x}px ${mousePos.y}px, rgba(212, 175, 55, 0.03), transparent 80%)`
-        }}
-      />
-
-      {/* Sidebar (Left) */}
-      <aside className="w-64 bg-black/40 backdrop-blur-2xl border-r border-border/20 hidden md:flex flex-col z-20 transition-all duration-500">
-        <div className="p-6">
-          <Link to="/" className="text-2xl font-bold text-primary flex items-center gap-2 group" style={{ fontFamily: "var(--font-display)" }}>
-            <span className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)] group-hover:scale-110 transition-transform">J</span>
-            <DecryptionText text="JustBid" delay={0.1} />
-          </Link>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-4 mt-6">
-          <Magnetic strength={0.3}>
-            <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 bg-primary/15 text-primary border border-primary/20 rounded-xl font-bold shadow-[0_0_20px_rgba(var(--primary),0.05)] transition-all">
-              <LayoutDashboard size={20} />
-              Matches Feed
-            </Link>
-          </Magnetic>
-          
-          <Magnetic strength={0.2}>
-            <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300 group">
-              <Settings size={20} className="group-hover:rotate-45 transition-transform" />
-              AI Matrix Profile
-            </Link>
-          </Magnetic>
-
-          <Magnetic strength={0.2}>
-            <Link to="/saved-bids" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300">
-              <Bookmark size={20} />
-              Inbox & Saved Bids
-            </Link>
-          </Magnetic>
-
-          <Magnetic strength={0.2}>
-            <Link to="/analytics" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300">
-              <BarChart3 size={20} />
-              Insights & Analytics
-            </Link>
-          </Magnetic>
-
-          <Magnetic strength={0.2}>
-            <Link to="/team" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300 group">
-              <Users size={20} className="group-hover:scale-110 transition-transform" />
-              Team Hub
-            </Link>
-          </Magnetic>
-        </nav>
-
-        {/* Sidebar Mini-Widgets */}
-        <div className="px-5 mb-8 space-y-4">
-           <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <div className="flex items-center justify-between mb-2">
-                 <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">Sync Protocol</p>
-                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]" />
-              </div>
-              <div className="flex items-center gap-2">
-                 <Activity size={12} className="text-green-500" />
-                 <p className="text-xs font-mono">SIMAP CONNECTED</p>
-              </div>
-           </div>
-
-           <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-50 mb-2">Neural Efficiency</p>
-              <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                 <motion.div initial={{ width: 0 }} animate={{ width: "94%" }} transition={{ duration: 2 }} className="h-full bg-primary" />
-              </div>
-              <p className="text-[10px] text-right mt-1 font-mono text-primary">94.2%</p>
-           </div>
-        </div>
-
-        <div className="p-4 border-t border-border/20 mt-auto bg-black/20">
-          <button 
-            onClick={() => {
-              localStorage.removeItem('token')
-              localStorage.removeItem('user')
-              navigate('/')
-            }}
-            className="w-full flex items-center gap-3 px-4 py-2 text-red-400/70 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all font-bold text-xs uppercase tracking-widest"
-          >
-            <LogOut size={16} />
-            Terminate
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Container: Feed + Intelligence Panel */}
-      <div className="flex-1 flex flex-col relative z-10 overflow-hidden">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-28 pb-24">
         
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/40 backdrop-blur-3xl border-b border-border/20 p-6 flex justify-between items-center transition-all">
+        {/* Header Title & Subtitle */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 pb-8 border-b border-white/[0.08]">
           <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-              <DecryptionText text="Active Opportunities" delay={0.2} />
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">Live Procurement Feed • Switzerland & EU</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
+              Tender Intelligence <span className="bg-gradient-to-r from-[#f6d365] to-[#fda085] bg-clip-text text-transparent">Console</span>
             </h1>
-            <p className="text-xs text-muted-foreground font-mono uppercase tracking-[0.2em] opacity-60">Status: Filtering Real Time Assets</p>
+            <p className="text-sm sm:text-base text-white/60 max-w-2xl mt-2 font-normal">
+              Continuously calibrated against your organizational capabilities, CPV codes, and budget thresholds.
+            </p>
           </div>
 
-          <div className="relative hidden lg:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <input 
-              type="text" 
-              placeholder="Query matrix..." 
+          <div className="flex items-center gap-3">
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-white/80 hover:text-white transition-all shadow-sm"
+            >
+              <SlidersHorizontal size={14} className="text-amber-400" />
+              <span>Tune Criteria</span>
+            </Link>
+
+            <Link
+              to="/saved-bids"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 text-xs font-bold text-amber-300 transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)]"
+            >
+              <Briefcase size={14} />
+              <span>Bid Pipeline ({savedTenderIds.size})</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Institutional Metrics Overview */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div className="p-5 rounded-2xl bg-[#0e111a]/80 border border-white/[0.06] backdrop-blur-md">
+            <div className="flex items-center justify-between text-white/40 mb-2">
+              <span className="text-xs font-medium uppercase tracking-wider">Matched Notices</span>
+              <Sparkles size={16} className="text-amber-400" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">{tenders.length}</p>
+            <p className="text-[11px] text-white/40 mt-1">High-probability opportunities</p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#0e111a]/80 border border-white/[0.06] backdrop-blur-md">
+            <div className="flex items-center justify-between text-white/40 mb-2">
+              <span className="text-xs font-medium uppercase tracking-wider">Total Addressable Value</span>
+              <TrendingUp size={16} className="text-emerald-400" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">
+              {(totalValue / 1000000).toFixed(1)}M <span className="text-sm font-semibold text-white/50">CHF</span>
+            </p>
+            <p className="text-[11px] text-emerald-400/80 mt-1">Directly in target scope</p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#0e111a]/80 border border-white/[0.06] backdrop-blur-md">
+            <div className="flex items-center justify-between text-white/40 mb-2">
+              <span className="text-xs font-medium uppercase tracking-wider">Average Fit Score</span>
+              <ShieldCheck size={16} className="text-amber-400" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">{avgFitScore}%</p>
+            <p className="text-[11px] text-white/40 mt-1">Above competitive threshold</p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#0e111a]/80 border border-white/[0.06] backdrop-blur-md">
+            <div className="flex items-center justify-between text-white/40 mb-2">
+              <span className="text-xs font-medium uppercase tracking-wider">Tracked in Pipeline</span>
+              <Briefcase size={16} className="text-sky-400" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">{savedTenderIds.size}</p>
+            <p className="text-[11px] text-white/40 mt-1">Active proposals in flight</p>
+          </div>
+        </div>
+
+        {/* Filter Controls Bar */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8">
+          
+          {/* Category Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  selectedCategory === cat
+                    ? "bg-white text-black font-bold shadow-md"
+                    : "bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/[0.06]"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full md:w-80 shrink-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+            <input
+              type="text"
+              placeholder="Filter by keyword, city, or CPV..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all w-80 hover:bg-white/10"
+              className="w-full bg-[#0e111a] border border-white/[0.08] focus:border-amber-400/40 rounded-xl py-2 pl-10 pr-4 text-xs text-white placeholder:text-white/40 focus:outline-none transition-all"
             />
           </div>
-        </header>
-
-        {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto flex">
-          
-          {/* Main Feed */}
-          <main className="flex-1 min-w-0 p-6 md:p-8 max-w-4xl mx-auto scroll-smooth">
-            
-            {/* Top Stat row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                <TeamCollaborationCard />
-                <DocumentAnalysisCard />
-                <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-                  <p className="text-xs text-muted-foreground mb-3 uppercase tracking-[0.3em] font-bold opacity-70">Neural Matches</p>
-                  <div className="flex items-baseline gap-4">
-                    <p className="text-6xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>{filteredTenders.length}</p>
-                    <div className="p-2 bg-primary/10 rounded-lg text-primary text-xs font-black">LIVE</div>
-                  </div>
-                </div>
-
-                <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group border-primary/20">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-primary font-bold mb-1 uppercase tracking-[0.3em]">Alpha Priority</p>
-                      <p className="text-muted-foreground text-xs leading-relaxed max-w-[200px]">Optimal alignment detected with target industry node.</p>
-                    </div>
-                    <div className="relative drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]">
-                      <CircularGauge value={filteredTenders.length > 0 ? filteredTenders[0].matchScore : 0} size={100} strokeWidth={8} delay={0.5} />
-                    </div>
-                  </div>
-                </div>
-            </div>
-
-            {/* Neural Feed Content */}
-            <div className="mb-10">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-sm font-bold flex items-center gap-3 uppercase tracking-[0.4em] text-muted-foreground">
-                  Neural Intelligence Feed 
-                  <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                </h2>
-                <div className="h-px w-32 bg-gradient-to-r from-primary/40 to-transparent" />
-              </div>
-              
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-32 glass-panel rounded-3xl border-dashed border-border/40">
-                  <div className="relative w-12 h-12 mb-6">
-                    <div className="absolute inset-0 border-2 border-primary/10 rounded-full"></div>
-                    <div className="absolute inset-0 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                  <DecryptionText text="Deciphering SIMAP Stream" className="text-sm font-mono" />
-                </div>
-              ) : (
-                <div className="space-y-10">
-                  <AnimatePresence mode="popLayout">
-                    {filteredTenders.map((tender, i) => (
-                      <TenderCard3D 
-                        key={tender.id}
-                        tender={tender}
-                        index={i}
-                        onMatchClick={(e) => handleApply(e || { target: {} }, tender.id)}
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              )}
-            </div>
-          </main>
-
-          {/* Intelligence Panel (Right Sidebar - Space Filler) */}
-          <aside className="w-80 hidden xl:flex flex-col bg-black/20 border-l border-border/10 p-6 z-20">
-             <div className="space-y-8">
-                {/* AI Insights Card */}
-                <div className="glass-panel p-5 rounded-2xl border-white/5 relative overflow-hidden group">
-                   <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-100 transition-opacity">
-                      <Shield size={16} className="text-primary" />
-                   </div>
-                   <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-4 text-primary">Neural Insights</h3>
-                   <div className="space-y-4">
-                      <div className="p-3 bg-white/5 rounded-lg border border-white/5 border-l-primary/40 border-l-2">
-                         <p className="text-[10px] text-muted-foreground font-mono mb-1">PROBABILITY SCAN</p>
-                         <p className="text-xs font-bold font-mono">HIGH SUCCESS DETECTED</p>
-                      </div>
-                      <div className="p-3 bg-white/5 rounded-lg border border-white/5 border-l-accent/40 border-l-2">
-                         <p className="text-[10px] text-muted-foreground font-mono mb-1">MARKET SENTIMENT</p>
-                         <p className="text-xs font-bold font-mono">UPWARD TREND 0.42%</p>
-                      </div>
-                   </div>
-                </div>
-
-                {/* System Activity Log */}
-                <div>
-                   <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                      <Cpu size={14} className="text-muted-foreground" />
-                      Live Network Logs
-                   </h3>
-                   <div className="space-y-2 max-h-[400px] overflow-hidden">
-                      {systemLogs.map((log, i) => (
-                        <motion.div 
-                          key={i+log}
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 0.6, x: 0 }}
-                          className="text-[10px] font-mono text-muted-foreground leading-tight hover:text-primary hover:bg-white/5 p-1 rounded transition-colors"
-                        >
-                           <span className="text-primary/40">[{new Date().toLocaleTimeString([], { hour12: false })}]</span> {log}
-                        </motion.div>
-                      ))}
-                      <div className="h-20 bg-gradient-to-t from-background to-transparent absolute bottom-6 w-[calc(100%-48px)] pointer-events-none" />
-                   </div>
-                </div>
-             </div>
-          </aside>
         </div>
 
-        {/* Command Center Footer (Fixed) */}
-        <footer className="h-10 border-t border-border/10 bg-black/40 backdrop-blur-md px-6 flex items-center justify-between z-30">
-           <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]" />
-                 <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">Neural Secure: OK</p>
-              </div>
-              <div className="flex items-center gap-2">
-                 <Wifi size={10} className="text-muted-foreground" />
-                 <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">Gateway: 24ms</p>
-              </div>
-           </div>
-           <div className="flex items-center gap-4">
-              <p className="text-[9px] font-mono uppercase tracking-widest text-primary/60">Session Auth: PRM USER</p>
-              <div className="h-4 w-px bg-white/10" />
-              <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">JustBid OS v2.4.1</p>
-           </div>
-        </footer>
-      </div>
+        {/* Tender Cards Grid */}
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-44 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />
+            ))}
+          </div>
+        ) : filteredTenders.length > 0 ? (
+          <div className="space-y-5">
+            {filteredTenders.map((tender, index) => (
+              <TenderCard3D
+                key={tender.id || index}
+                tender={tender}
+                index={index}
+                isSaved={savedTenderIds.has(tender.id)}
+                onSaveBid={handleSaveToggle}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 rounded-2xl bg-[#0e111a]/40 border border-white/[0.06] text-center p-6">
+            <div className="w-16 h-16 rounded-full bg-white/[0.04] flex items-center justify-center text-white/40 mb-4">
+              <Filter size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-1">No tenders matched your filter</h3>
+            <p className="text-xs text-white/50 max-w-sm mb-6">
+              Try broadening your search keywords or switching category filters.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCategory("All Sectors")
+              }}
+              className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-white transition-all"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+
+      </main>
     </div>
   )
 }
