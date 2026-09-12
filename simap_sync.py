@@ -232,6 +232,9 @@ class SimapSyncWorker:
                 # We have a source but it's not our target
                 try:
                     translated_text = GoogleTranslator(source='auto', target=target_lang).translate(data_dict.get(source_lang)[:4000])
+                    if translated_text and ("Error 500" in translated_text or "That’s an error" in translated_text or "<html" in translated_text.lower()):
+                        logger.warning(f"GoogleTranslator returned 500 error page for {source_lang}, falling back to original.")
+                        return data_dict, source_lang
                     data_dict[target_lang] = translated_text
                     return data_dict, target_lang
                 except Exception as e:

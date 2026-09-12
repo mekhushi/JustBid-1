@@ -4,6 +4,7 @@ import { gsap } from "gsap"
 import { Mail, Lock, User, ArrowRight, ShieldCheck, Zap, TrendingUp, ChevronLeft } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { Atmosphere } from "@/components/ui/atmosphere"
+import { BrandLogo } from "@/components/ui/brand-logo"
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
@@ -141,9 +142,9 @@ export default function AuthPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-background/40 to-transparent pointer-events-none" />
         
         <div className="relative z-10 flex flex-col justify-between h-full w-full max-w-xl mx-auto p-12 lg:px-20 lg:py-16">
-          <Link to="/" className="auth-brand inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors w-fit">
-            <ChevronLeft size={20} />
-            <span className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>JustBid</span>
+          <Link to="/" className="auth-brand inline-flex items-center gap-2 hover:opacity-85 transition-opacity w-fit">
+            <ChevronLeft size={20} className="text-muted-foreground" />
+            <BrandLogo size="md" showTagline tagline="INSTITUTIONAL PROCUREMENT" />
           </Link>
 
           <div className="my-auto py-12">

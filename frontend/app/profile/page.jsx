@@ -1,56 +1,56 @@
 import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { 
-  Settings, 
-  BarChart3, 
-  LayoutDashboard, 
-  Bookmark, 
-  LogOut, 
-  User as UserIcon,
-  Search,
-  ChevronRight,
-  Shield,
-  Activity,
-  Cpu,
-  BrainCircuit
+  Building2, 
+  MapPin, 
+  DollarSign, 
+  SlidersHorizontal, 
+  Check, 
+  Save, 
+  ArrowLeft, 
+  Sparkles,
+  ShieldCheck,
+  Tag,
+  Briefcase
 } from "lucide-react"
-import { Link, useNavigate, useLocation } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Atmosphere } from "@/components/ui/atmosphere"
-import { DecryptionText } from "@/components/ui/decryption-text"
-import Magnetic from "@/components/ui/magnetic"
+import { Navbar } from "@/components/ui/navbar"
+
+const SUGGESTED_CPVS = [
+  { code: "72000000-5", label: "IT Services & Consulting" },
+  { code: "72222300-2", label: "Information Technology Security" },
+  { code: "31682000-0", label: "Electricity Equipment & Telemetry" },
+  { code: "48180000-3", label: "Medical Software & Imaging" },
+  { code: "71320000-7", label: "Engineering Design Services" },
+  { code: "72212000-4", label: "Application Software Development" }
+]
 
 export default function ProfilePage() {
   const navigate = useNavigate()
-  const location = useLocation()
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState("general")
+  const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 
   const [formData, setFormData] = useState({
-    name: "",
-    industry: "",
-    location: "",
-    minBudget: "",
-    maxBudget: "",
-    cpvCodes: "",
-    keywords: ""
+    name: "Helvetic Cloud Technologies AG",
+    industry: "IT & Software Infrastructure",
+    location: "Zurich, Switzerland",
+    minBudget: "500000",
+    maxBudget: "10000000",
+    cpvCodes: "72000000-5, 72222300-2",
+    keywords: "cloud, zero-trust, scada, telemetry, security, digital identity"
   })
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"
 
   useEffect(() => {
-    const handleMouseMove = (e) => setMousePos({ x: e.clientX, y: e.clientY })
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
-
-  useEffect(() => {
     const token = localStorage.getItem("token")
     const storedUser = localStorage.getItem("user")
     if (!token) return navigate("/auth")
-    if (storedUser) setUser(JSON.parse(storedUser))
+    if (storedUser) {
+      try { setUser(JSON.parse(storedUser)) } catch (e) {}
+    }
 
     const fetchProfile = async () => {
       try {
@@ -59,18 +59,20 @@ export default function ProfilePage() {
         })
         if (res.ok) {
           const data = await res.json()
-          setFormData({
-            name: data.name || "",
-            industry: data.industry || "",
-            location: data.location || "",
-            minBudget: data.minBudget || "",
-            maxBudget: data.maxBudget || "",
-            cpvCodes: data.cpvCodes?.join(", ") || "",
-            keywords: data.keywords?.join(", ") || ""
-          })
+          if (data && data.name) {
+            setFormData({
+              name: data.name || "",
+              industry: data.industry || "",
+              location: data.location || "",
+              minBudget: data.minBudget ? String(data.minBudget) : "",
+              maxBudget: data.maxBudget ? String(data.maxBudget) : "",
+              cpvCodes: data.cpvCodes ? data.cpvCodes.join(", ") : "",
+              keywords: data.keywords ? data.keywords.join(", ") : ""
+            })
+          }
         }
       } catch (err) {
-        console.error("No profile yet.")
+        console.warn("Could not fetch company profile:", err)
       }
     }
     fetchProfile()
@@ -78,12 +80,16 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
+    setSaving(true)
     
     try {
       const token = localStorage.getItem("token")
       const payload = {
-        ...formData,
+        name: formData.name,
+        industry: formData.industry,
+        location: formData.location,
+        minBudget: formData.minBudget ? parseFloat(formData.minBudget) : null,
+        maxBudget: formData.maxBudget ? parseFloat(formData.maxBudget) : null,
         cpvCodes: formData.cpvCodes.split(",").map(s => s.trim()).filter(Boolean),
         keywords: formData.keywords.split(",").map(s => s.trim()).filter(Boolean),
       }
@@ -98,255 +104,212 @@ export default function ProfilePage() {
       })
 
       if (res.ok) {
-        toast.success("CALIBRATION_COMPLETE", {
-          description: "Neural match engine has synchronized with your profile."
-        })
-        setTimeout(() => navigate("/dashboard"), 1200)
+        toast.success("Matching criteria and profile updated successfully!")
+        setTimeout(() => navigate('/dashboard'), 800)
       } else {
-        toast.error("CALIBRATION_FAILED")
+        toast.error("Failed to update profile.")
       }
     } catch (err) {
-      toast.error("ERROR: " + err.message)
+      toast.error("Error saving organization criteria.")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
+  const toggleCPV = (code) => {
+    const current = formData.cpvCodes.split(",").map(s => s.trim()).filter(Boolean)
+    let next
+    if (current.includes(code)) {
+      next = current.filter(c => c !== code)
+    } else {
+      next = [...current, code]
+    }
+    setFormData(prev => ({ ...prev, cpvCodes: next.join(", ") }))
+  }
+
+  const currentCPVs = formData.cpvCodes.split(",").map(s => s.trim()).filter(Boolean)
+
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
-      {/* Neural Infrastructure */}
-      <div className="fixed inset-0 z-0">
-        <Atmosphere />
-        <div className="neural-grid" />
-        <div className="scanline-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background opacity-80 pointer-events-none" />
-      </div>
+    <div className="min-h-screen bg-[#080a10] text-white selection:bg-amber-400/30">
+      <Navbar />
 
-      {/* Global Background Spotlight */}
-      <div 
-        className="fixed inset-0 pointer-events-none z-10 transition-opacity duration-300"
-        style={{
-          background: `radial-gradient(1000px circle at ${mousePos.x}px ${mousePos.y}px, rgba(212, 175, 55, 0.03), transparent 80%)`
-        }}
-      />
-
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-black/40 backdrop-blur-3xl border-r border-border/20 hidden md:flex flex-col z-20">
-        <div className="p-6">
-          <Link to="/dashboard" className="text-2xl font-bold text-primary flex items-center gap-2 group" style={{ fontFamily: "var(--font-display)" }}>
-            <span className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]">J</span>
-            <DecryptionText text="JustBid" delay={0.1} />
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-28 pb-24">
+        
+        {/* Navigation Breadcrumb */}
+        <div className="mb-8">
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-xs font-semibold text-white/50 hover:text-white transition-colors mb-4">
+            <ArrowLeft size={14} /> Back to Intelligence Console
           </Link>
+          
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">Organization Preferences</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
+            Profile & Match <span className="bg-gradient-to-r from-[#f6d365] to-[#fda085] bg-clip-text text-transparent">Calibration</span>
+          </h1>
+
+          <p className="text-sm text-white/60 mt-1">
+            Configure your technical capabilities, target contract sizes, and industry classifications to calibrate your personalized tender feed.
+          </p>
         </div>
 
-        <nav className="flex-1 px-4 space-y-4 mt-6">
-          <Magnetic strength={0.2}>
-            <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300">
-              <LayoutDashboard size={20} />
-              Matches Feed
-            </Link>
-          </Magnetic>
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="space-y-8">
           
-          <Magnetic strength={0.3}>
-            <Link to="/profile" className="flex items-center gap-3 px-4 py-3 bg-primary/15 text-primary border border-primary/20 rounded-xl font-bold shadow-[0_0_20px_rgba(var(--primary),0.05)] transition-all">
-              <Settings size={20} />
-              AI Matrix Profile
-            </Link>
-          </Magnetic>
+          {/* General Information Card */}
+          <div className="p-6 sm:p-8 rounded-2xl bg-[#0e111a]/80 border border-white/[0.08] backdrop-blur-xl space-y-5">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+              <Building2 size={18} className="text-amber-400" />
+              <span>Enterprise Profile</span>
+            </h3>
 
-          <Magnetic strength={0.2}>
-            <Link to="/saved-bids" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300">
-              <Bookmark size={20} />
-              Inbox & Saved Bids
-            </Link>
-          </Magnetic>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="text-xs font-semibold text-white/60 block mb-2">Organization Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Swiss Prime Technologies AG"
+                  className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+                  required
+                />
+              </div>
 
-          <Magnetic strength={0.2}>
-            <Link to="/analytics" className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-all duration-300">
-              <BarChart3 size={20} />
-              Insights & Analytics
-            </Link>
-          </Magnetic>
-        </nav>
+              <div>
+                <label className="text-xs font-semibold text-white/60 block mb-2">Primary Industry / Domain</label>
+                <input
+                  type="text"
+                  value={formData.industry}
+                  onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                  placeholder="e.g. IT & Software Infrastructure"
+                  className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+                />
+              </div>
 
-        <div className="p-4 border-t border-border/20 mt-auto bg-black/20">
-          <Magnetic strength={0.1}>
-            <button 
-              onClick={() => {
-                localStorage.removeItem('token')
-                localStorage.removeItem('user')
-                navigate('/')
-              }}
-              className="w-full flex items-center gap-3 px-4 py-2 text-red-500/70 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all font-bold text-xs uppercase tracking-widest"
-            >
-              <LogOut size={16} />
-              Terminate
-            </button>
-          </Magnetic>
-        </div>
-      </aside>
-
-      {/* Main Configuration Console */}
-      <main className="flex-1 overflow-y-auto relative z-10 scroll-smooth">
-        <div className="max-w-4xl mx-auto p-12">
-          
-          <header className="mb-12">
-            <div className="flex items-center gap-2 text-primary/60 text-[10px] font-black uppercase tracking-[0.3em] mb-4">
-              <Cpu size={14} className="animate-pulse" />
-              <span>Neural Calibration Console</span>
-            </div>
-            <h1 className="text-4xl font-black tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
-              Strategy <span className="text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]">Resonance Vector</span>
-            </h1>
-            <p className="text-muted-foreground/80 max-w-xl text-sm leading-relaxed">
-              Calibrate your operational identity to synchronize with our market intelligence engine. These parameters define your match probability across the SIMAP neural net.
-            </p>
-          </header>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-            
-            {/* Tabs Navigation */}
-            <div className="lg:col-span-1 space-y-3">
-              {[
-                { id: "general", label: "General Node" },
-                { id: "logic", label: "Match Logic" },
-                { id: "budget", label: "Capacity Limit" }
-              ].map(tab => (
-                <button 
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)} 
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-primary text-black shadow-[0_0_20px_rgba(var(--primary),0.2)]' : 'text-muted-foreground/60 hover:bg-white/5 hover:text-foreground'}`}
-                >
-                  {tab.label} {activeTab === tab.id && <ChevronRight size={14} />}
-                </button>
-              ))}
-            </div>
-
-            {/* Form Area using Custom Glass UI */}
-            <div className="lg:col-span-3">
-              <form onSubmit={handleSubmit} className="glass-panel rounded-3xl p-8 md:p-10 border-white/10 shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                
-                <AnimatePresence mode="wait">
-                  {activeTab === "general" && (
-                    <motion.div 
-                      key="general"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="space-y-8"
-                    >
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] pl-1">Entity ID</label>
-                            <input value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} type="text" placeholder="e.g. Acme Systems" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none text-sm font-medium" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] pl-1">Sector Node</label>
-                            <input value={formData.industry} onChange={e=>setFormData({...formData, industry: e.target.value})} type="text" placeholder="e.g. Defense Tech" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none text-sm font-medium" />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] pl-1">Geographic Anchor</label>
-                          <input value={formData.location} onChange={e=>setFormData({...formData, location: e.target.value})} type="text" placeholder="e.g. Zurich CH" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none text-sm font-medium" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {activeTab === "logic" && (
-                    <motion.div 
-                      key="logic"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="space-y-8"
-                    >
-                      <div className="space-y-6">
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-primary uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
-                            <BrainCircuit size={12} /> Strategic CPV Stack
-                          </label>
-                          <textarea rows={3} value={formData.cpvCodes} onChange={e=>setFormData({...formData, cpvCodes: e.target.value})} placeholder="e.g. 09331200, 45231000" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none resize-none font-mono text-xs" />
-                          <p className="text-[9px] text-muted-foreground/40 italic">Industrial procurement codes separated by comma delimiters.</p>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-primary uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
-                            <Activity size={12} /> Semantic Keywords
-                          </label>
-                          <textarea rows={3} value={formData.keywords} onChange={e=>setFormData({...formData, keywords: e.target.value})} placeholder="e.g. Stealth, Cyber, Infrastructure" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none resize-none font-mono text-xs" />
-                          <p className="text-[9px] text-muted-foreground/40 italic">Neural net will prioritize assets containing these distinct markers.</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {activeTab === "budget" && (
-                    <motion.div 
-                      key="budget"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="space-y-8"
-                    >
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] pl-1">Min Capital ($)</label>
-                            <input value={formData.minBudget} onChange={e=>setFormData({...formData, minBudget: e.target.value})} type="number" placeholder="50k" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none text-sm font-medium" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] pl-1">Max Capital ($)</label>
-                            <input value={formData.maxBudget} onChange={e=>setFormData({...formData, maxBudget: e.target.value})} type="number" placeholder="25M" className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-4 focus:ring-1 focus:ring-primary/40 transition-all outline-none text-sm font-medium" />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <div className="pt-8 border-t border-white/5 flex items-center justify-between mt-10">
-                  <div className="flex items-center gap-3">
-                     <span className={`w-2 h-2 rounded-full ${loading ? 'bg-primary animate-ping' : 'bg-green-500'} shadow-[0_0_8px_currentColor]`} />
-                     <p className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">
-                       {loading ? "CALIBRATING ENGINE..." : "CORE READY"}
-                     </p>
-                  </div>
-                  
-                  <Magnetic strength={0.3}>
-                    <button 
-                      type="submit"
-                      disabled={loading} 
-                      className="bg-primary text-black px-10 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-[0_0_25px_rgba(var(--primary),0.4)] disabled:opacity-50 group"
-                    >
-                      {loading ? "Synchronizing..." : "Update Engine"}
-                      <ChevronRight size={16} className="inline-block ml-1 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </Magnetic>
-                </div>
-              </form>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-white/60 block mb-2">Target Jurisdiction / Location</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="e.g. Switzerland, Zurich, Bern, DACH region"
+                  className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      </main>
 
-      {/* Persistent Console Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 h-10 border-t border-white/5 bg-black/60 backdrop-blur-md px-6 flex items-center justify-between z-30">
-           <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]" />
-                 <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">Calibration Secure</p>
+          {/* Budget Range Card */}
+          <div className="p-6 sm:p-8 rounded-2xl bg-[#0e111a]/80 border border-white/[0.08] backdrop-blur-xl space-y-5">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+              <DollarSign size={18} className="text-emerald-400" />
+              <span>Target Contract Value Range (CHF)</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="text-xs font-semibold text-white/60 block mb-2">Minimum Contract Value</label>
+                <input
+                  type="number"
+                  value={formData.minBudget}
+                  onChange={(e) => setFormData({ ...formData, minBudget: e.target.value })}
+                  placeholder="e.g. 500000"
+                  className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                 <Shield size={10} className="text-primary/60" />
-                 <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">Latency: 12ms</p>
+
+              <div>
+                <label className="text-xs font-semibold text-white/60 block mb-2">Maximum Contract Value</label>
+                <input
+                  type="number"
+                  value={formData.maxBudget}
+                  onChange={(e) => setFormData({ ...formData, maxBudget: e.target.value })}
+                  placeholder="e.g. 10000000"
+                  className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+                />
               </div>
-           </div>
-           <div className="flex items-center gap-4">
-              <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/40">Unit: JustBid OS v2.4.1</p>
-           </div>
-        </footer>
+            </div>
+          </div>
+
+          {/* CPV Codes & Keywords */}
+          <div className="p-6 sm:p-8 rounded-2xl bg-[#0e111a]/80 border border-white/[0.08] backdrop-blur-xl space-y-5">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+              <Tag size={18} className="text-amber-400" />
+              <span>CPV Codes & Capability Matching</span>
+            </h3>
+
+            <div>
+              <label className="text-xs font-semibold text-white/60 block mb-2">Recommended Procurement CPV Codes</label>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {SUGGESTED_CPVS.map(cpv => {
+                  const active = currentCPVs.includes(cpv.code)
+                  return (
+                    <button
+                      type="button"
+                      key={cpv.code}
+                      onClick={() => toggleCPV(cpv.code)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                        active
+                          ? "bg-amber-400/15 border border-amber-400/30 text-amber-300 font-semibold"
+                          : "bg-white/[0.03] border border-white/[0.06] text-white/60 hover:text-white"
+                      }`}
+                    >
+                      {active && <Check size={12} className="text-amber-400" />}
+                      <span>{cpv.code}</span>
+                      <span className="text-white/40">• {cpv.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <input
+                type="text"
+                value={formData.cpvCodes}
+                onChange={(e) => setFormData({ ...formData, cpvCodes: e.target.value })}
+                placeholder="Comma separated CPV codes: 72000000-5, 31682000-0"
+                className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+              />
+            </div>
+
+            <div className="pt-3">
+              <label className="text-xs font-semibold text-white/60 block mb-2">Target Capability Keywords</label>
+              <input
+                type="text"
+                value={formData.keywords}
+                onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                placeholder="e.g. cloud, zero-trust, scada, telemetry, security, digital identity"
+                className="w-full bg-[#080a10] border border-white/[0.1] focus:border-amber-400/50 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+              />
+              <p className="text-[11px] text-white/40 mt-1.5">
+                Our algorithm scans tender text for these keywords to compute your match score and capability alignment breakdown.
+              </p>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex justify-end gap-3 pt-2">
+            <Link
+              to="/dashboard"
+              className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white/60 hover:text-white transition-colors"
+            >
+              Cancel
+            </Link>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#eac574] to-[#cb9e43] text-black font-bold text-xs hover:opacity-95 transition-all shadow-[0_0_20px_rgba(234,197,116,0.3)]"
+            >
+              <Save size={14} />
+              <span>{saving ? "Saving Criteria..." : "Save & Calibrate Feed"}</span>
+            </button>
+          </div>
+
+        </form>
+      </main>
     </div>
   )
 }

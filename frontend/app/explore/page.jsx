@@ -1,127 +1,176 @@
 import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
 import { Link, useNavigate } from "react-router-dom"
-import { Search } from "lucide-react"
+import { Search, Compass, Sparkles, Building2, MapPin, Filter, ArrowRight, ShieldCheck } from "lucide-react"
 import { TenderCard3D } from "@/components/ui/tender-card-3d"
-import { AiScanner } from "@/components/ui/ai-scanner"
 import { Navbar } from "@/components/ui/navbar"
+
+const CATEGORIES = [
+  "All Categories",
+  "IT & Software",
+  "Engineering & Energy",
+  "Healthcare & MedTech",
+  "Transport & Logistics",
+  "Cybersecurity"
+]
 
 export default function ExplorePage() {
   const [tenders, setTenders] = useState([])
   const [filteredTenders, setFilteredTenders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [scannerActive, setScannerActive] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("All Categories")
+  const [savedTenderIds, setSavedTenderIds] = useState(new Set())
   const navigate = useNavigate()
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"
 
   useEffect(() => {
-    const fetchTenders = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/tenders`)
-        if (res.ok) {
-          const data = await res.json()
-          setTenders(data.tenders) // The backend returns { tenders: [], pagination: {} }
-          setFilteredTenders(data.tenders)
-        }
-      } catch (err) {
-        console.error("Failed to load generic tenders", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchTenders()
   }, [API_URL])
 
-  // Live Search Logic
+  const fetchTenders = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/tenders`)
+      if (res.ok) {
+        const data = await res.json()
+        const list = data.tenders || []
+        setTenders(list)
+        setFilteredTenders(list)
+      }
+
+      const token = localStorage.getItem('token')
+      if (token) {
+        const savedRes = await fetch(`${API_URL}/api/tenders/saved`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (savedRes.ok) {
+          const sData = await savedRes.json()
+          setSavedTenderIds(new Set(sData.map(b => b.tenderId || b.id)))
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load generic tenders", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Search & Category Filtering
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredTenders(tenders)
-      return
+    let result = tenders
+
+    if (selectedCategory !== "All Categories") {
+      result = result.filter(t => t.category?.toLowerCase() === selectedCategory.toLowerCase())
     }
 
-    const q = searchQuery.toLowerCase()
-    const filtered = tenders.filter(t => 
-      t.title?.toLowerCase().includes(q) || 
-      t.description?.toLowerCase().includes(q) ||
-      t.location?.toLowerCase().includes(q) ||
-      t.cpvCodes?.some(c => c.toLowerCase().includes(q))
-    )
-    setFilteredTenders(filtered)
-  }, [searchQuery, tenders])
-
-  const handleMatchClick = () => {
-    setScannerActive(true)
-  }
-
-  const handleScannerComplete = () => {
-    setScannerActive(false)
-    const token = localStorage.getItem('token')
-    if (token) {
-      navigate('/dashboard')
-    } else {
-      navigate('/auth')
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(t => 
+        t.title?.toLowerCase().includes(q) || 
+        t.description?.toLowerCase().includes(q) ||
+        t.location?.toLowerCase().includes(q) ||
+        t.authority?.toLowerCase().includes(q) ||
+        t.cpvCodes?.some(c => c.toLowerCase().includes(q))
+      )
     }
-  }
+
+    setFilteredTenders(result)
+  }, [searchQuery, selectedCategory, tenders])
+
+  const totalValue = tenders.reduce((sum, t) => sum + (typeof t.budget === 'number' ? t.budget : 0), 0)
 
   return (
-    <>
-      <div className="min-h-screen bg-background text-foreground pb-12 selection:bg-primary/30">
-        <div className="grain-overlay" />
-        <Navbar />
+    <div className="min-h-screen bg-[#080a10] text-white selection:bg-amber-400/30">
+      <Navbar />
 
-        {/* Hero */}
-        <section className="bg-card border-b border-border pt-32 pb-16 px-6 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "var(--font-display)" }}>
-            Public Global <span className="text-primary">SIMAP Network</span>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-28 pb-24">
+        
+        {/* Header Title & Market Summary */}
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-amber-400/10 text-amber-300 border border-amber-400/20 mb-4 shadow-[0_0_20px_rgba(251,191,36,0.15)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Official SIMAP & TED Procurement Notices
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mb-4" style={{ fontFamily: "var(--font-display)" }}>
+            Public European <span className="bg-gradient-to-r from-[#f6d365] to-[#fda085] bg-clip-text text-transparent">Tender Index</span>
           </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-            Browse all active government opportunities circulating across Europe right now. Creating a free account lets our AI instantly match you with exactly the ones you can win!
+
+          <p className="text-sm sm:text-base text-white/60 leading-relaxed">
+            Directly sourced and standardized from Swiss Federal, Cantonal, and European Union procurement databases. Sign in to unlock automated capability matching and compliance analysis.
           </p>
 
-          <div className="relative max-w-xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+          {/* Search Bar */}
+          <div className="relative max-w-xl mx-auto mt-8">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={18} />
             <input 
               type="text" 
-              placeholder="Search keywords, locations, or CPV codes manually..." 
+              placeholder="Search by keywords, contracting authority, or CPV code..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-background border border-border shadow-xl rounded-full py-4 pl-12 pr-32 focus:ring-2 focus:ring-primary/50 transition-all text-lg"
+              className="w-full bg-[#0e111a] border border-white/[0.1] focus:border-amber-400/40 rounded-full py-3.5 pl-12 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none transition-all shadow-xl"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-6 py-2 rounded-full font-bold hover:scale-105 transition-all shadow-lg">
-              Search
+          </div>
+        </div>
+
+        {/* Category Pills */}
+        <div className="flex items-center justify-center flex-wrap gap-2 mb-10">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+                selectedCategory === cat
+                  ? "bg-white text-black font-bold shadow-md"
+                  : "bg-white/[0.04] text-white/60 hover:text-white border border-white/[0.08]"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Feed List */}
+        {loading ? (
+          <div className="space-y-4 max-w-5xl mx-auto">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-44 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />
+            ))}
+          </div>
+        ) : filteredTenders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-2xl bg-[#0e111a]/40 border border-white/[0.06] text-center p-6 max-w-xl mx-auto">
+            <div className="w-16 h-16 rounded-full bg-white/[0.04] flex items-center justify-center text-white/40 mb-4">
+              <Filter size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-1">No matching tenders found</h3>
+            <p className="text-xs text-white/50 max-w-sm mb-6">
+              Try adjusting your search criteria or resetting the category filter.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCategory("All Categories")
+              }}
+              className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-white transition-all"
+            >
+              Reset Filters
             </button>
           </div>
-        </section>
+        ) : (
+          <div className="space-y-5 max-w-5xl mx-auto">
+            {filteredTenders.map((tender, i) => (
+              <TenderCard3D 
+                key={tender.id || i} 
+                tender={tender} 
+                index={i}
+                isSaved={savedTenderIds.has(tender.id)}
+              />
+            ))}
+          </div>
+        )}
 
-        {/* Feed */}
-        <main className="max-w-5xl mx-auto p-6 md:p-8 mt-4" style={{ perspective: "1000px" }}>
-          {loading ? (
-            <div className="text-center py-20 text-muted-foreground">
-               <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-               Connecting to SIMAP Server...
-            </div>
-          ) : filteredTenders.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground">
-              {searchQuery ? `No tenders matching "${searchQuery}" found.` : "No public tenders available right now."}
-            </div>
-          ) : (
-            <div className="grid gap-6">
-               {filteredTenders.map((tender, i) => (
-                  <TenderCard3D 
-                    key={tender.id} 
-                    tender={tender} 
-                    index={i} 
-                    onMatchClick={handleMatchClick} 
-                  />
-               ))}
-            </div>
-          )}
-        </main>
-      </div>
-
-      <AiScanner active={scannerActive} onComplete={handleScannerComplete} />
-    </>
+      </main>
+    </div>
   )
 }

@@ -66,14 +66,10 @@ export default function App() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Neural Interface Features - Only for authenticated operatives */}
-      {isLoggedIn && (
-        <>
-          <AiBroker />
-          <AiChatbot />
-          <FloatingDock />
-        </>
-      )}
+      {/* Institutional Procurement Tools */}
+      <AiChatbot />
+      {isLoggedIn && <AiBroker />}
     </>
   )
 }
+

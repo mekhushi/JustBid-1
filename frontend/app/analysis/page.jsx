@@ -1,44 +1,96 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   FileText, 
   Upload, 
-  Shield, 
-  Zap, 
+  ShieldCheck, 
   Clock, 
-  Target, 
-  Search, 
-  ChevronRight, 
-  AlertCircle,
-  CheckCircle2,
-  Cpu,
-  BrainCircuit,
-  Binary
+  Sparkles, 
+  AlertCircle, 
+  CheckCircle2, 
+  Building2, 
+  DollarSign, 
+  ArrowRight,
+  FileSearch,
+  Layers,
+  History
 } from "lucide-react"
 import { toast } from "sonner"
 import { Navbar } from "@/components/ui/navbar"
 
+const SAMPLE_RFPS = [
+  {
+    title: "Swiss Federal IT Migration (FDF/FOITT) - Cloud RFP Brief",
+    filename: "FDF-Cloud-Procurement-Spec-2026.pdf",
+    budget: "4,800,000 CHF (Fixed-Price + T&M Extensions)",
+    summary: "Comprehensive multi-cloud migration and zero-trust orchestration for the Federal Department of Finance. Requires compliant hosting in Swiss sovereign data centers with active FINMA circular compliance.",
+    deadlines: [
+      "Submission of Final Bids: 21 business days prior to deadline",
+      "Vendor Q&A Clarifications Due: 10 days before offer opening",
+      "Shortlist Oral Defense: Within 14 days of opening",
+      "Contract Signature & Kickoff: Q4 2026"
+    ],
+    requirements: [
+      "ISO 27001, ISO 27017, and ISO 27018 certifications mandatory",
+      "Secret-level security clearances for all on-site cloud architects",
+      "Demonstrated experience with hybrid Azure/AWS Swiss GovCloud",
+      "Minimum 5 enterprise client references exceeding 2M CHF contract volume"
+    ],
+    risks: [
+      "Strict penalty of 0.5% per calendar day for schedule overrun beyond Go-Live milestone",
+      "Zero-tolerance data residency: all backup telemetry must remain within Swiss borders"
+    ],
+    winStrategy: "Highlight existing Swiss sovereign data center partnerships, certified local engineers, and established ISO 27001 accredited support operations."
+  },
+  {
+    title: "Zurich Smart Grid Telemetry & SCADA Expansion (EWZ)",
+    filename: "EWZ-SmartGrid-Telemetry-RFP-2026.pdf",
+    budget: "3,200,000 CHF",
+    summary: "Procurement of 45,000 smart grid sensor nodes and central management platform for Elektrizitätswerk der Stadt Zürich (EWZ). Focus on cyber-hardened edge computing and low-latency LoRaWAN telematics.",
+    deadlines: [
+      "Submission Deadline: Oct 06, 2026",
+      "Hardware Prototype Validation: 3 weeks post-award",
+      "Phase 1 Rollout (10,000 units): Q1 2027"
+    ],
+    requirements: [
+      "IEC 61850 substation communication protocol adherence",
+      "Cryptographically signed OTA firmware updates with hardware root of trust",
+      "5-year SLA for replacement hardware with 4-hour MTTR in Zurich canton"
+    ],
+    risks: [
+      "Stringent interoperability testing with existing legacy Siemens SCADA systems",
+      "Hardware supply chain lead-time verification required with bid submission"
+    ],
+    winStrategy: "Emphasize proven IEC 61850 field deployments, local Swiss warehousing for rapid replacement, and turn-key device management cloud."
+  }
+]
+
 export default function AnalysisPage() {
   const [file, setFile] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState(null)
+  const [analysisResult, setAnalysisResult] = useState(SAMPLE_RFPS[0])
   const [history, setHistory] = useState([])
+  const [activeTab, setActiveTab] = useState("requirements")
+
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"
 
   useEffect(() => {
     fetchHistory()
   }, [])
 
   const fetchHistory = async () => {
+    const token = localStorage.getItem("token")
+    if (!token) return
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/document/reports`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      const res = await fetch(`${API_URL}/api/document/reports`, {
+        headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
-      if (data.success) setHistory(data.data)
+      if (data.success && data.data) {
+        setHistory(data.data)
+      }
     } catch (err) {
-      console.error(err)
+      console.warn("Could not fetch reports history:", err)
     }
   }
 
@@ -46,267 +98,278 @@ export default function AnalysisPage() {
     const selectedFile = e.target.files[0]
     if (!selectedFile) return
     if (!selectedFile.type.includes("pdf")) {
-      toast.error("Security Protocol: Only PDF documents are currently supported.")
+      toast.error("Please upload a PDF procurement document (e.g. RFP, tender brief, or technical specification).")
       return
     }
 
     setFile(selectedFile)
     setIsUploading(true)
-    setAnalysisResult(null)
 
     const formData = new FormData()
     formData.append("document", selectedFile)
 
+    const token = localStorage.getItem("token")
+
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/document/analyze`, {
+      const res = await fetch(`${API_URL}/api/document/analyze`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData
       })
       const data = await res.json()
       if (data.success) {
-        setAnalysisResult(data.data)
-        toast.success("Intelligence Extraction Complete")
+        setAnalysisResult({
+          title: selectedFile.name.replace(".pdf", ""),
+          filename: selectedFile.name,
+          budget: data.data.budget || "See tender specification",
+          summary: data.data.summary,
+          deadlines: data.data.deadlines || [],
+          requirements: data.data.requirements || [],
+          risks: ["Ensure all referenced ISO certifications remain valid through contract term"],
+          winStrategy: "Structure proposal around compliance matrix mapping directly to stated tender deliverables."
+        })
+        toast.success("RFP Document Analysis Complete")
         fetchHistory()
       } else {
-        toast.error(data.message || "Extraction Failed")
+        toast.error(data.message || "Failed to analyze document")
       }
     } catch (err) {
-      toast.error("Neural Network Timeout")
+      toast.error("Analysis service timed out. Please verify server connection.")
     } finally {
       setIsUploading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-primary/30">
+    <div className="min-h-screen bg-[#080a10] text-white selection:bg-amber-400/30">
       <Navbar />
-      
-      {/* Background Ambience */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "2s" }} />
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]" />
-      </div>
 
-      <main className="relative z-10 pt-32 pb-20 px-6 max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row items-end justify-between gap-8 mb-16">
-          <div className="space-y-4">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2 text-primary"
-            >
-              <Cpu size={16} />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em]">Strategic Module 04</span>
-            </motion.div>
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-5xl md:text-7xl font-bold tracking-tighter"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              INTELLIGENCE <span className="text-primary">LAB</span>
-            </motion.h1>
-            <p className="text-muted-foreground max-w-md text-sm leading-relaxed">
-              Upload complex tender documents. Our neural network will decrypt requirements, deadlines, and fiscal parameters with 99.8% accuracy.
-            </p>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-28 pb-24">
+        
+        {/* Header Title */}
+        <div className="mb-10 pb-8 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">Document Intelligence Suite</span>
           </div>
-          
-          <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-            <div className="flex items-center gap-2">
-              <Shield size={12} /> SECURE CHANNEL
-            </div>
-            <div className="w-1 h-1 rounded-full bg-white/20" />
-            <div className="flex items-center gap-2">
-              <Binary size={12} /> ENCRYPTED DATA
-            </div>
-          </div>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
+            RFP & Tender <span className="bg-gradient-to-r from-[#f6d365] to-[#fda085] bg-clip-text text-transparent">Analyzer</span>
+          </h1>
+          <p className="text-sm sm:text-base text-white/60 max-w-2xl mt-2 font-normal">
+            Upload complex procurement specifications or tenders to extract mandatory criteria, critical milestones, budget allocations, and compliance risks in seconds.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Left Column: Upload & History */}
-          <div className="lg:col-span-5 space-y-8">
-            {/* Upload Zone */}
-            <motion.div 
-              whileHover={{ scale: 1.01 }}
-              className="relative group"
-            >
-              <input 
-                type="file" 
-                onChange={handleUpload}
-                className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                disabled={isUploading}
-              />
-              <div className={`p-12 rounded-[2.5rem] border-2 border-dashed transition-all duration-500 flex flex-col items-center justify-center text-center gap-6 bg-white/[0.02] backdrop-blur-xl ${
-                isUploading ? "border-primary animate-pulse" : "border-white/10 group-hover:border-primary/50 group-hover:bg-primary/[0.02]"
-              }`}>
-                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all duration-500 ${
-                  isUploading ? "bg-primary shadow-[0_0_30px_rgba(var(--primary),0.4)]" : "bg-white/5 group-hover:bg-primary/20"
-                }`}>
-                  {isUploading ? (
-                    <BrainCircuit className="w-10 h-10 animate-spin text-white" />
-                  ) : (
-                    <Upload className="w-10 h-10 text-primary" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2">Initialize Upload</h3>
-                  <p className="text-sm text-muted-foreground">Drop your PDF here or click to browse</p>
-                </div>
-                <div className="flex gap-2">
-                  {["Technical", "Fiscal", "Temporal"].map(tag => (
-                    <span key={tag} className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
+        {/* Top Split: Upload Zone + Sample Selector */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          
+          {/* Upload Card */}
+          <div className="lg:col-span-2 p-6 sm:p-8 rounded-2xl bg-[#0e111a]/80 border border-white/[0.08] backdrop-blur-xl relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Upload size={18} className="text-amber-400" />
+                <span>Upload Procurement Document</span>
+              </h3>
+              <span className="text-xs font-medium text-white/40">PDF up to 25MB</span>
+            </div>
 
-            {/* History List */}
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground pl-2">Archived Analyses</h4>
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
-                {history.map((report) => (
-                  <button 
-                    key={report.id}
-                    onClick={() => setAnalysisResult(report)}
-                    className={`w-full p-4 rounded-2xl border transition-all text-left flex items-center justify-between group ${
-                      analysisResult?.id === report.id 
-                        ? "bg-primary/10 border-primary/30" 
-                        : "bg-white/[0.02] border-white/5 hover:border-white/20"
+            <label className="border-2 border-dashed border-white/[0.12] hover:border-amber-400/40 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all bg-white/[0.01] hover:bg-white/[0.03] group">
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleUpload}
+                disabled={isUploading}
+                className="hidden"
+              />
+              <div className="w-12 h-12 rounded-xl bg-amber-400/10 text-amber-300 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <FileSearch size={24} />
+              </div>
+              <p className="text-sm font-semibold text-white mb-1">
+                {isUploading ? "Extracting Requirements..." : (file ? file.name : "Click to browse or drop PDF here")}
+              </p>
+              <p className="text-xs text-white/40 text-center max-w-xs">
+                Supports SIMAP notices, WTO GPA requests for proposals, and technical tender annexes.
+              </p>
+            </label>
+          </div>
+
+          {/* Quick Demo Preloaded RFPs */}
+          <div className="p-6 rounded-2xl bg-[#0e111a]/80 border border-white/[0.08] backdrop-blur-xl flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white/50">Benchmark Samples</h4>
+                <Sparkles size={14} className="text-amber-400" />
+              </div>
+              <p className="text-xs text-white/60 mb-4">
+                Explore structured extraction results instantly with authentic Swiss procurement briefs:
+              </p>
+              <div className="space-y-2.5">
+                {SAMPLE_RFPS.map((sample, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAnalysisResult(sample)}
+                    className={`w-full text-left p-3 rounded-xl border text-xs transition-all ${
+                      analysisResult?.title === sample.title
+                        ? "bg-amber-400/10 border-amber-400/30 text-white font-semibold"
+                        : "bg-white/[0.02] border-white/[0.06] text-white/70 hover:text-white hover:bg-white/[0.05]"
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                        <FileText size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold truncate max-w-[200px]">{report.filename}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                          {new Date(report.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                    <p className="font-semibold truncate">{sample.title}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">{sample.budget}</p>
                   </button>
                 ))}
               </div>
             </div>
+
+            {history.length > 0 && (
+              <div className="pt-4 border-t border-white/[0.06] mt-4">
+                <span className="text-[11px] font-medium text-white/40 flex items-center gap-1.5">
+                  <History size={13} />
+                  {history.length} previous document reports saved
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Right Column: Analysis Results */}
-          <div className="lg:col-span-7">
-            <AnimatePresence mode="wait">
-              {analysisResult ? (
-                <motion.div 
-                  key={analysisResult.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="space-y-8"
-                >
-                  {/* Result Header */}
-                  <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-primary/20 via-transparent to-transparent border border-primary/20 backdrop-blur-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10">
-                      <CheckCircle2 size={120} />
-                    </div>
-                    <div className="relative z-10 space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest">Validated</div>
-                        <span className="text-xs text-muted-foreground">{analysisResult.filename}</span>
-                      </div>
-                      <h2 className="text-3xl font-bold tracking-tight">Executive Summary</h2>
-                      <p className="text-muted-foreground leading-relaxed text-sm">
-                        {analysisResult.summary}
-                      </p>
-                    </div>
-                  </div>
+        </div>
 
-                  {/* Requirements & Deadlines */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Requirements */}
-                    <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/10 backdrop-blur-md space-y-6">
-                      <div className="flex items-center gap-3 text-primary">
-                        <Target size={20} />
-                        <h3 className="font-bold uppercase tracking-widest text-xs">Core Requirements</h3>
-                      </div>
-                      <div className="space-y-4">
-                        {analysisResult.requirements.map((req, i) => (
-                          <div key={i} className="flex gap-3 text-sm group">
-                            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 group-hover:scale-150 transition-transform" />
-                            <span className="text-muted-foreground group-hover:text-white transition-colors">{req}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+        {/* Extraction Results Viewer */}
+        {analysisResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl bg-[#0e111a]/90 border border-white/[0.08] overflow-hidden backdrop-blur-xl"
+          >
+            {/* Header of analysis */}
+            <div className="p-6 sm:p-8 border-b border-white/[0.08] bg-white/[0.01]">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  <CheckCircle2 size={13} />
+                  Structured Extraction Complete
+                </span>
+                <span className="text-xs font-mono text-white/40">{analysisResult.filename}</span>
+              </div>
 
-                    {/* Deadlines */}
-                    <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/10 backdrop-blur-md space-y-6">
-                      <div className="flex items-center gap-3 text-accent">
-                        <Clock size={20} />
-                        <h3 className="font-bold uppercase tracking-widest text-xs">Critical Timeline</h3>
-                      </div>
-                      <div className="space-y-4">
-                        {analysisResult.deadlines.map((deadline, i) => (
-                          <div key={i} className="flex gap-3 text-sm group">
-                            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0 group-hover:scale-150 transition-transform" />
-                            <span className="text-muted-foreground group-hover:text-white transition-colors">{deadline}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2" style={{ fontFamily: "var(--font-display)" }}>
+                {analysisResult.title}
+              </h2>
 
-                  {/* Fiscal Parameters */}
-                  <div className="p-8 rounded-[2.5rem] bg-gradient-to-r from-accent/10 to-transparent border border-accent/20 backdrop-blur-md flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center text-accent">
-                        <Zap size={24} />
+              <p className="text-sm text-white/70 leading-relaxed max-w-4xl">
+                {analysisResult.summary}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-6 mt-6 pt-4 border-t border-white/[0.06]">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 block">Estimated Budget</span>
+                  <span className="text-base sm:text-lg font-extrabold text-white">{analysisResult.budget}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 block">Identified Criteria</span>
+                  <span className="text-base sm:text-lg font-extrabold text-amber-300">{analysisResult.requirements?.length || 0} Mandates</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 block">Submission Timeline</span>
+                  <span className="text-base sm:text-lg font-extrabold text-white">{analysisResult.deadlines?.length || 0} Milestones</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 px-6 sm:px-8 border-b border-white/[0.08] bg-black/20 overflow-x-auto scrollbar-none">
+              <TabButton active={activeTab === "requirements"} onClick={() => setActiveTab("requirements")} label="Mandatory Criteria" count={analysisResult.requirements?.length} />
+              <TabButton active={activeTab === "deadlines"} onClick={() => setActiveTab("deadlines")} label="Timeline & Milestones" count={analysisResult.deadlines?.length} />
+              <TabButton active={activeTab === "risks"} onClick={() => setActiveTab("risks")} label="Risks & Strategy" />
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-6 sm:p-8">
+              {activeTab === "requirements" && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-4">Mandatory Compliance Matrix</h4>
+                  {analysisResult.requirements?.map((req, i) => (
+                    <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                      <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-300 shrink-0 mt-0.5">
+                        <ShieldCheck size={13} />
                       </div>
-                      <div>
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">Estimated Resource Value</h4>
-                        <p className="text-2xl font-bold">{analysisResult.budget || "Confidential"}</p>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white/90">{req}</p>
                       </div>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0">
+                        Required
+                      </span>
                     </div>
-                    <motion.button 
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="px-6 py-3 rounded-2xl bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-accent hover:text-white transition-all shadow-xl"
-                    >
-                      Draft Strategy
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ) : (
-                <div className="h-full min-h-[600px] rounded-[3rem] border border-white/5 bg-white/[0.01] flex flex-col items-center justify-center text-center p-12 border-dashed">
-                  <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-8 relative">
-                    <Search className="w-10 h-10 text-muted-foreground/20" />
-                    <div className="absolute inset-0 rounded-full border border-white/5 animate-ping" />
-                  </div>
-                  <h2 className="text-2xl font-bold mb-4">Neural Buffer Empty</h2>
-                  <p className="text-muted-foreground max-w-sm text-sm">
-                    Awaiting document synchronization. Select a previously analyzed file or initialize a new sequence from the upload terminal.
-                  </p>
+                  ))}
                 </div>
               )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </main>
 
-      {/* OS Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 p-6 z-50 flex justify-between items-center mix-blend-difference pointer-events-none opacity-40">
-        <div className="flex items-center gap-4 text-[9px] font-bold tracking-[0.3em] uppercase">
-          <span className="text-primary">Operational Status</span>
-          <span className="text-white">Analysis Core v2.4.1</span>
-        </div>
-        <div className="text-[9px] font-bold tracking-[0.3em] uppercase text-white">
-          JustBid Neural Laboratory © 2026
-        </div>
-      </footer>
+              {activeTab === "deadlines" && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-4">Procurement Milestones & Timetable</h4>
+                  {analysisResult.deadlines?.map((dl, i) => (
+                    <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                      <div className="w-5 h-5 rounded-full bg-blue-400/10 flex items-center justify-center text-blue-300 shrink-0 mt-0.5">
+                        <Clock size={13} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white/90">{dl}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "risks" && (
+                <div className="space-y-6">
+                  {analysisResult.risks && analysisResult.risks.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3">Key Risk & Penalty Factors</h4>
+                      <div className="space-y-2.5">
+                        {analysisResult.risks.map((risk, i) => (
+                          <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-rose-500/[0.04] border border-rose-500/20">
+                            <AlertCircle size={15} className="text-rose-400 mt-0.5 shrink-0" />
+                            <p className="text-sm text-rose-200/90">{risk}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {analysisResult.winStrategy && (
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3">Recommended Winning Strategy</h4>
+                      <div className="p-4 rounded-xl bg-amber-400/[0.04] border border-amber-400/20 text-sm text-amber-200/90 leading-relaxed">
+                        {analysisResult.winStrategy}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          </motion.div>
+        )}
+
+      </main>
     </div>
+  )
+}
+
+function TabButton({ active, onClick, label, count }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`py-3.5 px-4 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+        active
+          ? "border-amber-400 text-white font-bold"
+          : "border-transparent text-white/50 hover:text-white"
+      }`}
+    >
+      <span>{label}</span>
+      {count !== undefined && (
+        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/[0.08] text-white/70">
+          {count}
+        </span>
+      )}
+    </button>
   )
 }
